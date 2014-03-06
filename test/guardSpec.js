@@ -14,6 +14,12 @@ describe('Guard', function() {
 				}).should.throw();
 				result.should.be.true;
 			});
+			it('throws Error with given message', function() {
+				var message = 'Message';
+				(function() {
+					Guard.against(false, message);
+				}).should.throw(message);
+			});
 		});
 	});
 });
