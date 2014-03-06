@@ -3,8 +3,8 @@ require('should');
 
 describe('Guard', function() {
 	describe('#against', function() {
-		context('prevents execution', function() {
-			it('throw exception', function() {
+		context('(false)', function() {
+			it('prevents execution', function() {
 				var result = true;
 				(typeof Guard).should.be.ok;
 				(typeof Guard.against).should.equal('function');
