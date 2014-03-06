@@ -15,5 +15,15 @@ describe('Guard', function() {
 				result.should.be.true;
 			});
 		});
+		context('(true)', function() {
+			it('allows execution', function() {
+				var result = true;
+				(function() {
+					Guard.against(true, 'Message');
+					result = false;
+				}());
+				result.should.be.false;
+			});
+		});
 	});
 });
