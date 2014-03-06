@@ -1,5 +1,5 @@
 module.exports = {
-	against: function() {
-		throw Error();
+	against: function(_, message) {
+		throw Error(message);
 	},
 };
