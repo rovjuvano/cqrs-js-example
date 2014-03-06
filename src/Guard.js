@@ -1,5 +1,7 @@
 module.exports = {
-	against: function() {
-		throw Error();
+	against: function(assertion) {
+		if (!assertion) {
+			throw Error();
+		}
 	},
 };
