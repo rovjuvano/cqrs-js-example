@@ -1,0 +1,27 @@
+{
+  "name": "cqrs-js-example",
+  "version": "0.0.1-SNAPSHOT",
+  "description": "Example CQRS application",
+  "dependencies": {},
+  "devDependencies": {
+    "mocha": "~1.17.1",
+    "should": "~3.1.3"
+  },
+  "scripts": {
+    "test": "mocha --reporter list test/*Spec.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rovjuvano/cqrs-js-example.git"
+  },
+  "keywords": [
+    "CQRS"
+  ],
+  "author": "Robert Juliano <rovjuvano@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rovjuvano/cqrs-js-example/issues"
+  },
+  "homepage": "https://github.com/rovjuvano/cqrs-js-example",
+  "private": true
+}
