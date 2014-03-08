@@ -1,0 +1,24 @@
+{
+  "name": "cqrs-js-example",
+  "version": "0.0.1-NEXT",
+  "description": "Example CQRS application",
+  "keywords": [
+    "CQRS"
+  ],
+  "authors": [
+    "Robert Juliano <rovjuvano@gmail.com>"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/rovjuvano/cqrs-js-example",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular": "~1.2.14"
+  }
+}
