@@ -17,6 +17,10 @@
   },
   "homepage": "https://github.com/rovjuvano/cqrs-js-example",
   "devDependencies": {
-    "bower": "~1.2.8"
+    "bower": "~1.2.8",
+    "gulp": "~3.5.5",
+    "gulp-clean": "~0.2.4",
+    "gulp-jade": "~0.4.2",
+    "gulp-less": "~1.2.2"
   }
 }
