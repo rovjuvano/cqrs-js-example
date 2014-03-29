@@ -1,72 +1,163 @@
-html(ng-app="module/cqrs/example")
+html
 	head
 		link(rel="stylesheet", type="text/css", href="index.css")
 	body
-		.item-list(ng-controller="view/item/list")
-			table
-				thead
-					tr
-						th.active Active?
-						th.count Count
-						th.id Item ID
-						th.name Item Name
-				tbody
-					tr(ng-repeat="item in itemList")
-						td.active(ng-click="select(item.id)") {{item.active ? 'Y' : 'N'}}
-						td.count(ng-click="select(item.id)") {{item.count}}
-						td.id(ng-click="select(item.id)") {{item.id}}
-						td.name(ng-click="select(item.id)") {{item.name}}
-			.action
-					label
-						input(ng-model="showLiveUpdates", type="checkbox")
-						| Show Live Updates
-			.action: button(ng-click="select('nosuchitem')") Trigger Error
-			.action: button(ng-click="load()") Reload Data
-			.action(ng-controller="view/item/create")
+		#app
+			.item-create(ng-controller="view/item/create")
+				button(ng-click="createSampleData()") Create Sample Data
 				div
 					label ID
-					input(ng-model="item.id")
+						input(ng-model="args.id")
 				div
 					label Name
-					input(ng-model="item.name")
-				button(ng-click="createItem()") Create Item
-		.item-detail(ng-controller="view/item/detail", ng-show="item")
-			table
-				tbody
-					tr
-						th.active Active?
-						td.active {{item.active ? 'Y' : 'N'}}
-					tr
-						th.count Count
-						td.count {{item.count}}
-					tr
-						th.id Item ID
-						td.id {{item.id}}
-					tr
-						th.name Item Name
-						td.name {{item.name}}
-			.action
+						input(ng-model="args.name")
+				div
+					label Initial Count
+						input(ng-model="args.count", type="number")
+				div
 					label
-						input(ng-model="showLiveUpdates", type="checkbox")
-						| Show Live Updates
-			.action(ng-controller="view/item/deactivate", ng-show="item.active")
-				button(ng-click="deactivateItem()") Deactivate
-			.action(ng-controller="view/item/activate", ng-show="!item.active")
-				button(ng-click="activateItem()") Activate
-			.action(ng-controller="view/item/check/in", ng-form="checkInForm")
-				input(ng-model="item.countAdded", type="number", min="1", max="1000")
-				button(ng-click="checkInItem(checkInForm)") In
-			.action(ng-controller="view/item/check/out", ng-form="checkOutForm")
-				input(ng-model="item.countRemoved", type="number", min="1", max="{{item.count}}")
-				button(ng-click="checkOutItem(checkOutForm)") Out
-			.action(ng-controller="view/item/rename", ng-form="renameForm")
-				input(ng-model="item.newName")
-				button(ng-click="renameItem(renameForm)") Rename
-		.error-list(ng-controller="view/item/error")
-			.error-detail(ng-repeat="error in errorList", unfocused="removeError(error)", delay="5000")
-				.delete(ng-click="removeError(error)") &times;
-				.id {{error.id}}
-				.message {{error.message}}
+						input(ng-model="args.active", type="checkbox")
+						| Deactivated
+				button(ng-click="createItem()") Create Item
+			.item-list(ng-controller="view/item/list")
+				table
+					thead
+						tr
+							th.active Active?
+							th.count Count
+							th.id Item ID
+							th.name Item Name
+							th.version Version
+					tbody(ng-repeat="item in itemList")
+						tr
+							td.active(ng-click="select(item.id)") {{item.active ? 'Y' : 'N'}}
+							td.count(ng-click="select(item.id)") {{item.count}}
+							td.id(ng-click="select(item.id)") {{item.id}}
+							td.name(ng-click="select(item.id)") {{item.name}}
+							td.version(ng-click="select(item.id)") {{item._version}}
+				.action
+						label
+							input(ng-model="showLiveUpdates", type="checkbox")
+							| Show Live Updates
+				.action: button(ng-click="select('nosuchitem')") Trigger Error
+				.action: button(ng-click="load()") Reload Data
+			.item-detail(ng-controller="view/item/detail", ng-show="item")
+				table
+					tbody
+						tr
+							th.active Active?
+							td.active {{item.active ? 'Y' : 'N'}}
+						tr
+							th.count Count
+							td.count {{item.count}}
+						tr
+							th.id Item ID
+							td.id {{item.id}}
+						tr
+							th.name Item Name
+							td.name {{item.name}}
+						tr
+							th.name Version
+							td.name {{item._version}}
+				.action
+						label
+							input(ng-model="showLiveUpdates", type="checkbox")
+							| Show Live Updates
+				.action(ng-controller="view/item/deactivate", ng-show="item.active")
+					button(ng-click="deactivateItem()") Deactivate
+				.action(ng-controller="view/item/activate", ng-show="!item.active")
+					button(ng-click="activateItem()") Activate
+				.action(ng-controller="view/item/check/in", ng-form="checkInForm")
+					input(ng-model="count", type="number", min="1", max="1000")
+					button(ng-click="checkInItem(checkInForm)") In
+				.action(ng-controller="view/item/check/out", ng-form="checkOutForm")
+					input(ng-model="count", type="number", min="1", max="{{item.count}}")
+					button(ng-click="checkOutItem(checkOutForm)") Out
+				.action(ng-controller="view/item/rename", ng-form="renameForm")
+					input(ng-model="name")
+					button(ng-click="renameItem(renameForm)") Rename
+			.error-list(ng-controller="view/item/error")
+				.error-detail(ng-repeat="error in errorList", unfocused="removeError(error)", delay="5000")
+					.delete(ng-click="removeError(error)") &times;
+					.id {{error.id}}
+					.message {{error.message}}
+		.servers
+			#query-item-list
+				section(ng-controller="itemStore")
+					header Query Item List
+					.store-item-list
+						.item(ng-repeat="item in itemStore") {{item}}
+			#query-item-detail
+				section(ng-controller="itemStore")
+					header Query Item Detail
+					.store-item-detail
+						.item(ng-repeat="(id, item) in itemStore") {{id}}: {{item}}
+			#domain-item
+				section(ng-controller="commandStore")
+					header(ng-click="expandedView = !expandedView") Command Store
+					table.store-item-command
+						thead
+							tr.command
+								th.index(ng-show="expandedView")
+								th.timestamp(ng-show="expandedView") Timestamp
+								th.root-id Root ID
+								th.type Type
+								th.data Data
+								th.result(ng-show="expandedView") Events
+						tbody.command(ng-repeat="command in commandStore") {{command}}
+							tr.details
+								td.index(rowspan="{{command.error ? 2 : 1}}", ng-show="expandedView") {{command.index}}
+								td.timestamp(ng-show="expandedView") {{command.timestamp}}
+								td.root-id {{command.rootId}}
+								td.type {{command.type}}
+								td.data {{command.data}}
+								td.result(ng-show="expandedView") {{command.events}}
+							tr.error(ng-if="command.error")
+								td.message(colspan="5") Error: {{command.error}}
+				section(ng-controller="eventStore")
+					header(ng-click="expandedView = !expandedView") Event Store
+					table.store-item-event
+						thead
+							tr.event
+								th.index(ng-show="expandedView")
+								th.timestamp(ng-show="expandedView") Timestamp
+								th.type Type
+								th.data Data
+						tbody.event(ng-repeat-start="(id, eventList) in eventStore")
+							tr
+								th(colspan="4") Root ID: {{id}}
+						tbody.event-list(ng-repeat-end, ng-repeat="event in eventList")
+							tr
+								td.index(ng-show="expandedView") {{event.index}}
+								td.timestamp(ng-show="expandedView") {{event.timestamp}}
+								td.type {{event.type}}
+								td.data {{event.data}}
+		script
+			//- Decode angular error message
+			|window.onerror = function(errorMsg, url, lineNumber, columnNumber, errorObject) {
+			|	var message = (errorObject && errorObject.message) || errorMsg;
+			|	var limit = 10;
+			|	while (/%[0-9a-fA-F]{2}/.test(message) && limit > 0) {
+			|		message = unescape(message);
+			|		limit--;
+			|	}
+			|	console.log(message);
+			|};
 		script(src="angular.min.js")
-		script(src="rx.lite.js")
+		script(src="angular-mocks.js")
+		script(src="rx.js")
+		script(src="rx.binding.js")
+		script
+			|angular.module('Rx', []).constant('Rx', Rx);
+			|delete window.Rx;
 		script(src="index.js")
+		script(src="basic-builder.js")
+		script#network(src="network.js")
+		script(src="server/domain.js")
+		script(src="server/query/list.js")
+		script(src="server/query/detail.js")
+		script
+			|angular.bootstrap(document.getElementById("query-item-list"), ["module/cqrs/example/query/item/list"]);
+			|angular.bootstrap(document.getElementById("query-item-detail"), ["module/cqrs/example/query/item/detail"]);
+			|angular.bootstrap(document.getElementById("domain-item"), ["module/cqrs/example/domain/item"]);
+			|angular.bootstrap(document.getElementById("app"), ["module/cqrs/example/client"]);

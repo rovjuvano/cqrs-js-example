@@ -1,6 +1,8 @@
 * {
 	margin: 0;
 	padding: 0;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
 }
 table {
 	border-collapse: collapse;
@@ -13,17 +15,14 @@ table {
 		color: #FFF;
 	}
 	tbody {
-		tr:nth-child(odd) {
-			background-color: #DDD;
-			&:hover {
-				background-color: #BBB;
-			}
-		}
-		tr:nth-child(even) {
+		&:nth-child(odd) {
 			background-color: #FFF;
-			&:hover {
-				background-color: #BBB;
-			}
+		}
+		&:nth-child(even) {
+			background-color: #DDD;
+		}
+		&:hover {
+			background-color: #BBB;
 		}
 		td.count, th {
 			text-align: right;
@@ -33,7 +32,9 @@ table {
 		}
 	}
 }
-.item-list, .item-detail {
+.item-create,
+.item-list,
+.item-detail {
 	display: inline-block;
 	margin: 1ch;
 	vertical-align: top;
@@ -58,6 +59,45 @@ table {
 		&:after {
 			content: ":";
 			padding-right: 1ch;
+		}
+	}
+}
+.servers {
+	& > div {
+		display: inline;		
+	}
+	section {
+		display: inline-block;
+		width: 50%;
+		padding: 1ch;
+		vertical-align: top;
+		header {
+			font-weight: bold;
+			padding: .5ch 1ch;
+			color: #FFF;
+			background: #555;
+		}
+	}
+	.store-item-list,
+	.store-item-detail,
+	.store-item-command,
+	.store-item-event {
+		display: inline-block;
+		width: 100%;
+		overflow: auto;
+		border: 1px dotted #DDD;
+	}
+	.store-item-event {
+		border: none;
+		.event-list {
+			border: 1px solid #000;
+			padding-bottom: .5em;
+		}
+	}
+	table {
+		width: 100%;
+		th {
+			text-align: left;
 		}
 	}
 }

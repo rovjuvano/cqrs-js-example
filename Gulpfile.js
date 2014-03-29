@@ -7,7 +7,12 @@ var gulp = require('gulp'),
 var paths = {
 	jade: ['./src/**/*.jade'],
 	less: ['./src/**/*.less'],
-	js: ['./src/**/*.js', 'bower_components/angular/angular.min.js{,.map}', 'bower_components/rxjs/rx.lite.js'],
+	js: ['./src/**/*.js',
+		'bower_components/angular/angular.min.js{,.map}',
+		'bower_components/angular-mocks/angular-mocks.js',
+		'bower_components/rxjs/rx.js',
+		'bower_components/rxjs/rx.binding.js',
+	],
 }
 
 const DIST_DIR = './dist';
