@@ -1,6 +1,72 @@
-html
+html(ng-app="module/cqrs/example")
 	head
 		link(rel="stylesheet", type="text/css", href="index.css")
 	body
+		.item-list(ng-controller="view/item/list")
+			table
+				thead
+					tr
+						th.active Active?
+						th.count Count
+						th.id Item ID
+						th.name Item Name
+				tbody
+					tr(ng-repeat="item in itemList")
+						td.active(ng-click="select(item.id)") {{item.active ? 'Y' : 'N'}}
+						td.count(ng-click="select(item.id)") {{item.count}}
+						td.id(ng-click="select(item.id)") {{item.id}}
+						td.name(ng-click="select(item.id)") {{item.name}}
+			.action
+					label
+						input(ng-model="showLiveUpdates", type="checkbox")
+						| Show Live Updates
+			.action: button(ng-click="select('nosuchitem')") Trigger Error
+			.action: button(ng-click="load()") Reload Data
+			.action(ng-controller="view/item/create")
+				div
+					label ID
+					input(ng-model="item.id")
+				div
+					label Name
+					input(ng-model="item.name")
+				button(ng-click="createItem()") Create Item
+		.item-detail(ng-controller="view/item/detail", ng-show="item")
+			table
+				tbody
+					tr
+						th.active Active?
+						td.active {{item.active ? 'Y' : 'N'}}
+					tr
+						th.count Count
+						td.count {{item.count}}
+					tr
+						th.id Item ID
+						td.id {{item.id}}
+					tr
+						th.name Item Name
+						td.name {{item.name}}
+			.action
+					label
+						input(ng-model="showLiveUpdates", type="checkbox")
+						| Show Live Updates
+			.action(ng-controller="view/item/deactivate", ng-show="item.active")
+				button(ng-click="deactivateItem()") Deactivate
+			.action(ng-controller="view/item/activate", ng-show="!item.active")
+				button(ng-click="activateItem()") Activate
+			.action(ng-controller="view/item/check/in", ng-form="checkInForm")
+				input(ng-model="item.countAdded", type="number", min="1", max="1000")
+				button(ng-click="checkInItem(checkInForm)") In
+			.action(ng-controller="view/item/check/out", ng-form="checkOutForm")
+				input(ng-model="item.countRemoved", type="number", min="1", max="{{item.count}}")
+				button(ng-click="checkOutItem(checkOutForm)") Out
+			.action(ng-controller="view/item/rename", ng-form="renameForm")
+				input(ng-model="item.newName")
+				button(ng-click="renameItem(renameForm)") Rename
+		.error-list(ng-controller="view/item/error")
+			.error-detail(ng-repeat="error in errorList", unfocused="removeError(error)", delay="5000")
+				.delete(ng-click="removeError(error)") &times;
+				.id {{error.id}}
+				.message {{error.message}}
 		script(src="angular.min.js")
+		script(src="rx.lite.js")
 		script(src="index.js")

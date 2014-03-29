@@ -7,7 +7,7 @@ var gulp = require('gulp'),
 var paths = {
 	jade: ['./src/**/*.jade'],
 	less: ['./src/**/*.less'],
-	js: ['./src/**/*.js', 'bower_components/angular/angular.min.js{,.map}'],
+	js: ['./src/**/*.js', 'bower_components/angular/angular.min.js{,.map}', 'bower_components/rxjs/rx.lite.js'],
 }
 
 const DIST_DIR = './dist';
@@ -21,7 +21,7 @@ gulp.task('clean', function() {
 gulp.task('build', ['build:html', 'build:css', 'build:js']);
 gulp.task('build:html', function() {
 	gulp.src(paths.jade)
-		.pipe(jadeToHtml({pretty: true}))
+		.pipe(jadeToHtml())
 		.pipe(gulp.dest(DIST_DIR));
 });
 gulp.task('build:css', function() {
