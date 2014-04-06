@@ -1,5 +1,7 @@
+var subject, subject1;
 angular.module('module/cqrs/example/domain/item', [
 	'Rx',
+	'UUID',
 	'module/cqrs/example/network/http',
 	'module/cqrs/example/network/event',
 	'module/cqrs/example/builder/item/basic',
@@ -9,156 +11,208 @@ angular.module('module/cqrs/example/domain/item', [
 		if (condition) throw new Error(message);
 	}
 })
-.constant('store/item/event', {})
-.constant('store/item/command', [])
-.factory('domain/item', ['store/item/event', 'domain/item/observer', 'builder/item/basic', function(eventStore, observer, builder) {
-	var create = function(rootId) {
-		eventStore[rootId] = [];
-		return eventStore[rootId];
-	};
-	return {
-		exists: function(rootId) {
-			return !!eventStore[rootId];
-		},
-		load: function(rootId) {
-			var item;
-			console.log('domain {');
-			if (eventStore[rootId]) {
-				item = {};
-				eventStore[rootId].forEach(function(event) {
-					console.log(' ', event);
-					builder[event.type].call(item, event.data);
-				});
-			}
-			console.log('}');
-			return item;
-		},
-		makeEvents: function(rootId, list) {
-			var store = (eventStore[rootId] || create(rootId));
-			list.forEach(function(item) {
-				var event = {
-					index: store.length,
-					timestamp: new Date(),
-					rootId: rootId,
-					type: item[0],
-					data: item[1],
-				};
+.value('store/item/event/current', [])
+.config(['$provide', 'Rx', function($provide, Rx) {
+	if (!subject) {
+		subject = new Rx.Subject();
+	}
+	$provide.factory('store/item/event/observer', function() { return subject });
+	$provide.factory('store/item/event/future', function() {
+		return subject.selectMany(function(events) {
+			return Rx.Observable.fromArray(events, Rx.Scheduler.timeout);
+		});
+	});
+}])
+.factory('store/item/event', ['Rx', 'store/item/event/current', 'store/item/event/observer', 'store/item/event/future', function(Rx, store, subject, subjectObservable) {
+	var observer = {
+		onNext: function(events) {
+			events.forEach(function(event) {
 				store.push(event);
 			});
-			var events = store.slice(-list.length, store.length);
-			events.forEach(function(event) {
-				observer.onNext(event);
-			});
-			return events;
+			subject.onNext(events);
+		},
+	};
+	var observable = Rx.Observable.create(function(observer) {
+		var o = Rx.Observable.fromArray(store, Rx.Scheduler.timeout).concat(subjectObservable);
+		o.zip(o.startWith({}), function(current, prior) {
+			current._priorEventId = prior.eventId;
+			return current;
+		})
+		.subscribe(observer);
+	});
+	return new Rx.Subject.create(observer, observable);
+}])
+.constant('store/item/command', [])
+.factory('domain/item', ['Rx', '$log', 'store/item/event/current', 'builder/item/basic', 'domain/item/observer', 'UUID', function(Rx, $log, eventStore, builder, observer, UUID) {
+	function load(itemId, expectNew) {
+		$log.log('domain {');
+		return Rx.Observable.fromArray(eventStore)
+		.filter(function(event) {
+			return event.data.id === itemId;
+		})
+		.aggregate({}, function(item, event) {
+			$log.log(' ', event);
+			builder[event.type].call(item, event.data);
+			return item;
+		})
+		.do(function() { $log.log('}') })
+		.select(function(item) {
+			var isNew = Object.keys(item).length === 0;
+			if (isNew && expectNew) {
+				return true;
+			}
+			if (!isNew && !expectNew) {
+				return item;
+			}
+			return undefined;
+		})
+	};
+	return {
+		create: function(itemId) {
+			return load(itemId, true);
+		},
+		load: function(itemId) {
+			return load(itemId, false);
 		},
 	};
 }])
 .constant('handler', {})
 .run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
-	handler['create'] = function(command) {
-		var itemId = command.data.id;
-		var name = command.data.name;
-		Guard.against(domain.exists(itemId), 'Item already exists with ID: ' + itemId);
-		Guard.against(typeof itemId !== 'string', 'ID must be a string.');
-		Guard.against(itemId.length === 0, 'ID cannot be empty.');
-		Guard.against(typeof name !== 'string', 'Name must be a string.');
-		Guard.against(name.length === 0, 'Name cannot be empty.');
-		var events = [['created', {id: itemId, name: name}]];
-		if (command.data.hasOwnProperty('active')) {
-			var active = command.data.active;
-			Guard.against(typeof active !== 'boolean', 'active flag must be a boolean.');
-			events.push([active ? 'activated' : 'deactivated', {}]);
-		}
-		if (command.data.hasOwnProperty('count')) {
-			var count = command.data.count;
+	handler['create'] = function(args) {
+		var itemId = args.id;
+		return domain.create(itemId).selectMany(function(isNew) {
+			Guard.against(!isNew, 'Item already exists with ID: ' + itemId);
+			var name = args.name;
+			Guard.against(typeof itemId !== 'string', 'ID must be a string.');
+			Guard.against(itemId.length === 0, 'ID cannot be empty.');
+			Guard.against(typeof name !== 'string', 'Name must be a string.');
+			Guard.against(name.length === 0, 'Name cannot be empty.');
+			var events = [['created', {id: itemId, name: name}]];
+			if (args.hasOwnProperty('active')) {
+				var active = args.active;
+				Guard.against(typeof active !== 'boolean', 'active flag must be a boolean.');
+				events.push([active ? 'activated' : 'deactivated', {id: itemId}]);
+			}
+			if (args.hasOwnProperty('count')) {
+				var count = args.count;
+				Guard.against(typeof count !== 'number', 'Checkin count must be a number.');
+				Guard.against(isNaN(count), 'Checkin count must be a number.');
+				Guard.against(Math.floor(count) !== count, 'Checkin count must be a whole number.');
+				Guard.against(count < 0, 'Checkin count must be greater than zero.');
+				events.push(['checkedIn', {id: itemId, count: count}]);
+			}
+			return Rx.Observable.fromArray(events);
+		});
+	};
+}])
+.run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
+	handler['activate'] = function(args) {
+		return domain.load(args.id).select(function(item) {
+			Guard.against(item === undefined, 'Item not found: ' + args.id);
+			return ['activated', {id: item.id}];
+		});
+	};
+}])
+.run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
+	handler['deactivate'] = function(args) {
+		return domain.load(args.id).select(function(item) {
+			Guard.against(item === undefined, 'Item not found: ' + args.id);
+			return ['deactivated', {id: item.id}];
+		});
+	};
+}])
+.run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
+	handler['check/in'] = function(args) {
+		return domain.load(args.id).select(function(item) {
+			Guard.against(item === undefined, 'Item not found: ' + args.id);
+			var count = args.count;
 			Guard.against(typeof count !== 'number', 'Checkin count must be a number.');
 			Guard.against(isNaN(count), 'Checkin count must be a number.');
 			Guard.against(Math.floor(count) !== count, 'Checkin count must be a whole number.');
 			Guard.against(count < 0, 'Checkin count must be greater than zero.');
-			events.push(['checkedIn', {count: count}]);
-		}
-		return domain.makeEvents(itemId, events);
+			return ['checkedIn', {id: item.id, count: count}];
+		});
 	};
 }])
 .run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
-	handler['activate'] = function(command) {
-		var rootId = command.rootId;
-		Guard.against(!domain.exists(rootId), 'Item not found: ' + rootId);
-		return domain.makeEvents(rootId, [['activated', {}]]);
+	handler['check/out'] = function(args) {
+		return domain.load(args.id).select(function(item) {
+			Guard.against(item === undefined, 'Item not found: ' + args.id);
+			var count = args.count;
+			Guard.against(typeof count !== 'number', 'Checkout count must be a number.');
+			Guard.against(isNaN(count), 'Checkout count must be a number.');
+			Guard.against(Math.floor(count) !== count, 'Checkout count must be a whole number.');
+			Guard.against(count < 0, 'Checkout count must be greater than zero.');
+			Guard.against(item.count < count, 'Checkout count (' + count + ') must be less than or equal to inventory count (' + item.count + ')');
+			return ['checkedOut', {id: item.id, count: count}];
+		});
 	};
 }])
 .run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
-	handler['deactivate'] = function(command) {
-		var rootId = command.rootId;
-		Guard.against(!domain.exists(rootId), 'Item not found: ' + rootId);
-		return domain.makeEvents(rootId, [['deactivated', {}]]);
+	handler['rename'] = function(args) {
+		return domain.load(args.id).select(function(item) {
+			Guard.against(item === undefined, 'Item not found: ' + args.id);
+			var name = args.name;
+			Guard.against(typeof name !== 'string', 'Name must be a string.');
+			Guard.against(name.length === 0, 'Name cannot be empty.');
+			return ['renamed', {id: item.id, name: name}];
+		});
 	};
 }])
-.run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
-	handler['check/in'] = function(command) {
-		var rootId = command.rootId;
-		var count = command.data.count;
-		Guard.against(!domain.exists(rootId), 'Item not found: ' + rootId);
-		Guard.against(typeof count !== 'number', 'Checkin count must be a number.');
-		Guard.against(isNaN(count), 'Checkin count must be a number.');
-		Guard.against(Math.floor(count) !== count, 'Checkin count must be a whole number.');
-		Guard.against(count < 0, 'Checkin count must be greater than zero.');
-		return domain.makeEvents(rootId, [['checkedIn', {count: count}]]);
-	};
-}])
-.run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
-	handler['check/out'] = function(command) {
-		var rootId = command.rootId;
-		var count = command.data.count;
-		Guard.against(!domain.exists(rootId), 'Item not found: ' + rootId);
-		Guard.against(typeof count !== 'number', 'Checkout count must be a number.');
-		Guard.against(isNaN(count), 'Checkout count must be a number.');
-		Guard.against(Math.floor(count) !== count, 'Checkout count must be a whole number.');
-		Guard.against(count < 0, 'Checkout count must be greater than zero.');
-		var item = domain.load(rootId);
-		Guard.against(item.count < count, 'Checkout count (' + count + ') must be less than or equal to inventory count (' + item.count + ')');
-		return domain.makeEvents(rootId, [['checkedOut', {count: count}]]);
-	};
-}])
-.run(['handler', 'domain/item', 'Guard', function(handler, domain, Guard) {
-	handler['rename'] = function(command) {
-		var rootId = command.rootId;
-		var name = command.data.name;
-		Guard.against(!domain.exists(rootId), 'Item not found: ' + rootId);
-		Guard.against(typeof name !== 'string', 'Name must be a string.');
-		Guard.against(name.length === 0, 'Name cannot be empty.');
-		return domain.makeEvents(rootId, [['renamed', {name: name}]]);
-	};
-}])
-.factory('handle', ['handler', 'store/item/command', function(handler, commandStore) {
-	return function(command) {
-		command.index = commandStore.length;
-		command.timestamp = new Date();
+.factory('handle', ['handler', 'store/item/command', 'store/item/event', 'UUID', function(handler, commandStore, eventStore, UUID) {
+	return function(type, args) {
+		var command = {
+			timestamp: new Date(),
+			commandId: UUID(),
+			type: type,
+			data: args,
+		};
 		commandStore.push(command);
-		return handler[command.type](command);
+		var response;
+		handler[command.type](args)
+			.select(function(args) {
+				return {
+					timestamp: new Date(),
+					eventId: UUID(),
+					type: args[0],
+					data: args[1],
+				};
+			})
+			.toArray()
+			.do(function(events) {
+				command.events = events.map(function(event) { return event.type }).join(', ');
+				eventStore.onNext(events);
+			})
+			.subscribe(function(events) {
+				response = [200, events, {}];
+			}, function(error) {
+				command.error = error.message;
+				response = [400, error.message, {}];
+			});
+		return response;
 	};
 }])
-.run(['$httpBackend', 'handle', 'app/command/observer', function($httpBackend, handle, observer) {
-	$httpBackend.when('POST', '/command/item').respond(function(method, url, rawData, headers) {
+.run(['$httpBackend', '$log', 'handle', 'app/command/observer', function($httpBackend, $log, handle, appObserver) {
+	var re = new RegExp('/command/item/(.*)');
+	$httpBackend.when('POST', re).respond(function(method, url, rawData, headers) {
+		var commandType = url.replace(re, '$1');
 		try {
-			var command = JSON.parse(rawData);
-			var events = handle(command);
-			command.events = events.map(function(event) { return event.type }).join(', ');
-			return [200, events, {}];
+			return handle(commandType, JSON.parse(rawData));
 		}
 		catch (e) {
-			command.error = e.message;
+			$log.warn('handler terminated very abnormally');
 			return [400, e.message, {}];
-		}
-		finally {
-			observer.onNext();			
+		} finally {
+			appObserver.onNext();
 		}
 	});
 }])
 .config(['$provide', 'Rx', function($provide, Rx) {
-	var subject = new Rx.Subject();
-	$provide.factory('app/command/observable', function() { return subject });
-	$provide.factory('app/command/observer', function() { return subject });
+	if (!subject1) {
+		subject1 = new Rx.Subject();
+	}
+	$provide.factory('app/command/observable', function() { return subject1 });
+	$provide.factory('app/command/observer', function() { return subject1 });
 }])
 .controller('commandStore', ['$scope', 'store/item/command', 'app/command/observable', function($scope, commandStore, observable) {
 	$scope.commandStore = commandStore;
@@ -166,7 +220,7 @@ angular.module('module/cqrs/example/domain/item', [
 		$scope.$apply();
 	});
 }])
-.controller('eventStore', ['$scope', 'store/item/event', 'app/command/observable', function($scope, eventStore, observable) {
+.controller('eventStore', ['$scope', 'store/item/event/current', 'store/item/event/future', function($scope, eventStore, observable) {
 	$scope.eventStore = eventStore;
 	observable.subscribe(function() {
 		$scope.$apply();

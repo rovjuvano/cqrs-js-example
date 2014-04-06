@@ -30,6 +30,22 @@ table {
 		td.active {
 			text-align: center;
 		}
+		.event-id, .timestamp {
+			white-space: nowrap;
+			max-width: 10ch;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			&:hover {
+				max-width: none;
+				position: absolute;
+				background-color: #BBB;
+				border: none;
+				outline: 1px solid #555;
+			}
+		}
+		.timestamp {
+			direction: rtl;
+		}
 	}
 }
 .item-create,
@@ -64,7 +80,7 @@ table {
 }
 .servers {
 	& > div {
-		display: inline;		
+		display: inline;
 	}
 	section {
 		display: inline-block;
@@ -100,4 +116,9 @@ table {
 			text-align: left;
 		}
 	}
+}
+.unsynced {
+	box-shadow: 0 0 0 8px #F00;
+}
+.synced {
 }

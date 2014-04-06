@@ -84,11 +84,19 @@ html
 		.servers
 			#query-item-list
 				section(ng-controller="itemStore")
+					.action
+						label
+							input(ng-model="app.ignoreEvents", type="checkbox")
+							| Ignore Events
 					header Query Item List
 					.store-item-list
 						.item(ng-repeat="item in itemStore") {{item}}
 			#query-item-detail
 				section(ng-controller="itemStore")
+					.action
+						label
+							input(ng-model="app.ignoreEvents", type="checkbox")
+							| Ignore Events
 					header Query Item Detail
 					.store-item-detail
 						.item(ng-repeat="(id, item) in itemStore") {{id}}: {{item}}
@@ -100,15 +108,13 @@ html
 							tr.command
 								th.index(ng-show="expandedView")
 								th.timestamp(ng-show="expandedView") Timestamp
-								th.root-id Root ID
 								th.type Type
 								th.data Data
 								th.result(ng-show="expandedView") Events
 						tbody.command(ng-repeat="command in commandStore") {{command}}
 							tr.details
-								td.index(rowspan="{{command.error ? 2 : 1}}", ng-show="expandedView") {{command.index}}
-								td.timestamp(ng-show="expandedView") {{command.timestamp}}
-								td.root-id {{command.rootId}}
+								td.index(rowspan="{{command.error ? 2 : 1}}", ng-show="expandedView") {{$index}}
+								td.timestamp(ng-show="expandedView") {{command.timestamp.toISOString()}}
 								td.type {{command.type}}
 								td.data {{command.data}}
 								td.result(ng-show="expandedView") {{command.events}}
@@ -121,15 +127,13 @@ html
 							tr.event
 								th.index(ng-show="expandedView")
 								th.timestamp(ng-show="expandedView") Timestamp
+								th.event-id(ng-show="expandedView") Event ID
 								th.type Type
 								th.data Data
-						tbody.event(ng-repeat-start="(id, eventList) in eventStore")
-							tr
-								th(colspan="4") Root ID: {{id}}
-						tbody.event-list(ng-repeat-end, ng-repeat="event in eventList")
-							tr
-								td.index(ng-show="expandedView") {{event.index}}
-								td.timestamp(ng-show="expandedView") {{event.timestamp}}
+						tbody.event(ng-repeat="event in eventStore")
+								td.index(ng-show="expandedView") {{$index}}
+								td.timestamp(ng-show="expandedView") {{event.timestamp.toISOString()}}
+								td.event-id(ng-show="expandedView") {{event.eventId}}
 								td.type {{event.type}}
 								td.data {{event.data}}
 		script
@@ -147,6 +151,7 @@ html
 		script(src="angular-mocks.js")
 		script(src="rx.js")
 		script(src="rx.binding.js")
+		script(src="rx.aggregates.js")
 		script
 			|angular.module('Rx', []).constant('Rx', Rx);
 			|delete window.Rx;

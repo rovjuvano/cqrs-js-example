@@ -1,5 +1,5 @@
-// NEXT: revisit exceptions in subscribe (e.g. query/item/{list,detail})
-// NEXT: cleanup: domain/item
+// NEXT: relayout views
+// NEXT: redesign domain/item, eventStore API
 // NEXT: concurrency control
 angular.module('Rx').run(['Rx', function(Rx) {
 	Rx.Observable.prototype.x_cache = function() {
@@ -15,20 +15,28 @@ angular.module('Rx').run(['Rx', function(Rx) {
 	};
 	return Rx;
 }]);
+angular.module('UUID', []).factory('UUID', function() {
+	return function() {
+		return "xxxxxxxx-xxxx-4xxx-xxxx-xxxxxxxxxxxx"
+			.replace(/x/g, function() {
+				return (Math.random()*16|0).toString(16);
+			});
+	};
+})
 
 var module = angular.module('module/cqrs/example/client', [
 	'Rx',
 	'module/cqrs/example/network/http',
 	'module/cqrs/example/builder/item/basic',
 ])
-.factory('app/query', ['$http', 'Rx', function($http, Rx) {
+.factory('app/query', ['$http', '$log', 'Rx', function($http, $log, Rx) {
 	return function(url) {
 		return Rx.Observable.fromPromise($http({method: 'GET', url: url}))
 		.pluck('data')
 		.catch(function(response) {
 			var error = new Error(response.data);
 			error.statusCode = response.statusCode;
-			console.warn('error:', error);
+			$log.debug('error:', error);
 			throw error;
 		})
 		.x_cache();
@@ -46,22 +54,21 @@ var module = angular.module('module/cqrs/example/client', [
 		return query('/query/item/detail/' + itemId);
 	};
 }])
-.factory('app/command/item', ['$http', 'Rx', 'app/event/item/observer', 'app/event/error/observer', function($http, Rx, itemObserver, errorObserver) {
-	return function(command) {
-		console.log('sending command', command);
+.factory('app/command/item', ['$http', '$log', 'Rx', 'app/event/item/observer', 'app/event/error/observer', function($http, $log, Rx, itemObserver, errorObserver) {
+	return function(type, args) {
+		$log.log('sending command', type, args);
 		var source = Rx.Observable.fromPromise($http({
 			method: 'POST',
-			url: '/command/item',
-			data: command,
+			url: '/command/item/' + type,
+			data: args,
 		}))
 		.selectMany(function(response) {
-			console.log('done:', response);
 			return Rx.Observable.fromArray(response.data);
 		})
 		.catch(function(response) {
 			var error = new Error(response.data);
 			error.statusCode = response.statusCode;
-			console.warn('error:', error);
+			$log.warn('error:', error.message);
 			throw error;
 		})
 		.x_cache();
@@ -80,7 +87,7 @@ var module = angular.module('module/cqrs/example/client', [
 		$provide.factory(baseName + '/observer', function() { return subject });
 	});
 }])
-.controller('view/item/list', ['$scope', 'app/query/item/list', 'app/event/item/selected/observer', 'app/event/item/observable', 'builder/item/basic', function($scope, listItems, itemSelected, itemEvent, builder) {
+.controller('view/item/list', ['$scope', '$log', 'app/query/item/list', 'app/event/item/selected/observer', 'app/event/item/observable', 'builder/item/basic', function($scope, $log, listItems, itemSelected, itemEvent, builder) {
 	$scope.load = function() {
 		$scope.itemList = [];
 		listItems().subscribe(
@@ -88,11 +95,11 @@ var module = angular.module('module/cqrs/example/client', [
 				$scope.itemList.push(item);
 			},
 			function(err) {
-				console.error('Failed to load itemList: ' + err.message);
+				$log.error('Failed to load itemList: ' + err.message);
 				$scope.itemList = [];
 			},
 			function() {
-				console.debug('Loading itemList completed');
+				$log.debug('Loading itemList completed');
 			}
 		);
 	};
@@ -110,8 +117,8 @@ var module = angular.module('module/cqrs/example/client', [
 	};
 	itemEvent.subscribe(function(event) {
 		if ($scope.showLiveUpdates) {
-			console.log('view/list:', event);
-			builder[event.type].call(getById(event.rootId) || create(), event.data);
+			$log.log('view/list:', event);
+			builder[event.type].call(getById(event.data.id) || create(), event.data);
 		}
 	});
 	$scope.showLiveUpdates = true;
@@ -124,7 +131,7 @@ var module = angular.module('module/cqrs/example/client', [
 		itemSelected.onNext(item);
 	};
 }])
-.controller('view/item/detail', ['$scope', 'app/query/item/detail', 'app/event/item/selected/observable', 'app/event/item/observable', 'builder/item/basic', function($scope, detailItem, itemSelected, itemEvent, builder) {
+.controller('view/item/detail', ['$scope', '$log', 'app/query/item/detail', 'app/event/item/selected/observable', 'app/event/item/observable', 'builder/item/basic', function($scope, $log, detailItem, itemSelected, itemEvent, builder) {
 	itemSelected.subscribe(function(itemId) {
 		if (itemId) {
 			load(itemId);
@@ -139,17 +146,17 @@ var module = angular.module('module/cqrs/example/client', [
 				$scope.item = item;
 			},
 			function(err) {
-				console.error('Failed to load itemDetail: ' + err.message);
+				$log.error('Failed to load itemDetail: ' + err.message);
 				$scope.item = null;
 			},
 			function () {
-				console.debug('Loading itemDetail completed: ' + itemId);
+				$log.debug('Loading itemDetail completed: ' + itemId);
 			}
 		);
 	}
 	itemEvent.subscribe(function(event) {
-		if ($scope.showLiveUpdates && $scope.item && $scope.item.id === event.rootId) {
-			console.log('view/detail:', event);
+		if ($scope.showLiveUpdates && $scope.item && $scope.item.id === event.data.id) {
+			$log.log('view/detail:', event);
 			builder[event.type].call($scope.item, event.data);
 		}
 	});
@@ -215,36 +222,36 @@ var module = angular.module('module/cqrs/example/client', [
 		if (args.hasOwnProperty('active')) {
 			args.active = !args.active;
 		}
-		sendCommand({type: 'create', data: $scope.args}).subscribe(initialize, function() {
+		sendCommand('create', $scope.args).subscribe(initialize, function() {
 			if (args.hasOwnProperty('active')) {
 				args.active = !args.active;
 			}
 		});
 	};
 	$scope.createSampleData = function() {
-		sendCommand({type: 'create', data: {id: 'Item0001', name: 'Item One'}});
-		sendCommand({type: 'create', data: {id: 'Item0002', name: 'Item Two'}});
-		sendCommand({type: 'create', data: {id: 'Item0003', name: 'Item Three'}});
+		sendCommand('create', {id: 'Item0001', name: 'Item One'});
+		sendCommand('create', {id: 'Item0002', name: 'Item Two'});
+		sendCommand('create', {id: 'Item0003', name: 'Item Three'});
 	};
 }])
 .controller('view/item/activate', ['$scope', 'app/command/item', function($scope, sendCommand) {
 	$scope.activateItem = function(form) {
-		sendCommand({type: 'activate', rootId: $scope.item.id, data: {}});
+		sendCommand('activate', {id: $scope.item.id});
 	};	
 }])
 .controller('view/item/deactivate', ['$scope', 'app/command/item', function($scope, sendCommand) {
 	$scope.deactivateItem = function(form) {
-		sendCommand({type: 'deactivate', rootId: $scope.item.id, data: {}});
+		sendCommand('deactivate', {id: $scope.item.id});
 	};	
 }])
 .controller('view/item/check/in', ['$scope', 'app/command/item', function($scope, sendCommand) {
 	$scope.checkInItem = function(form) {
-		sendCommand({type: 'check/in', rootId: $scope.item.id, data: {count: $scope.count}});
+		sendCommand('check/in', {id: $scope.item.id, count: $scope.count});
 	};	
 }])
 .controller('view/item/check/out', ['$scope', 'app/command/item', function($scope, sendCommand) {
 	$scope.checkOutItem = function(form) {
-		sendCommand({type: 'check/out', rootId: $scope.item.id, data: {count: $scope.count}});
+		sendCommand('check/out', {id: $scope.item.id, count: $scope.count});
 	};	
 }])
 .controller('view/item/rename', ['$scope', 'app/command/item', function($scope, sendCommand) {
@@ -254,6 +261,6 @@ var module = angular.module('module/cqrs/example/client', [
 		}
 	});
 	$scope.renameItem = function(form) {
-		sendCommand({type: 'rename', rootId: $scope.item.id, data: {name: $scope.name}});
+		sendCommand('rename', {id: $scope.item.id, name: $scope.name});
 	};	
 }])
