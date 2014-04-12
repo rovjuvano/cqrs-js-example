@@ -1,6 +1,5 @@
 angular.module('module/cqrs/example/query/item/detail', [
 	'module/cqrs/example/network/http',
-	'module/cqrs/example/network/event',
 	'module/cqrs/example/builder/item/basic',
 	'module/cqrs/example/domain/item',
 ])
@@ -12,26 +11,30 @@ angular.module('module/cqrs/example/query/item/detail', [
 	};
 	var safeGaurd = 3;
 	var priorEventId;
-	var subscribe = function(eventCount) {
+	var subscribe = function() {
 		var eventCount = Object.keys(itemIndex).reduce(function(acc, key) { return acc + itemIndex[key]._version + 1 }, 0);
-		var subscription = window.subscriptionDetail = eventStore.skip(eventCount).subscribe(function(event) {
-			if (app.ignoreEvents) {
-				return;
-			}
-			$log.log('query/detail:', event);
-			var item = itemIndex[event.data.id] || create(event.data.id);
-			if (priorEventId !== event._priorEventId) {
-				if (--safeGaurd <= 0) throw new Error('Infinite Loop');
-				$log.debug('re-subscribing detail');
-				subscription.dispose();
-				subscribe();
-				return;
-			}
-			safeGaurd = 3;
-			builder[event.type].call(item, event.data);
-			priorEventId = event.eventId;
-			observer.onNext();
-		});
+		var subscription = eventStore.skip(eventCount)
+			.filter(function(){
+				return !app.simulateLostEvents;
+			})
+			.filter(function(event) {
+				if (priorEventId !== event._priorEventId) {
+					if (--safeGaurd <= 0) throw new Error('Infinite Loop');
+					$log.debug('re-subscribing detail');
+					subscription.dispose();
+					subscribe();
+					return false;
+				}
+				safeGaurd = 3;
+				priorEventId = event.eventId;
+				return true;
+			})
+			.subscribe(function(event) {
+				$log.log('query/detail:', event);
+				var item = itemIndex[event.data.id] || create(event.data.id);
+				builder[event.type].call(item, event.data);
+				observer.onNext();
+			});
 	};
 	subscribe();
 }])

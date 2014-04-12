@@ -3,7 +3,6 @@ angular.module('module/cqrs/example/domain/item', [
 	'Rx',
 	'UUID',
 	'module/cqrs/example/network/http',
-	'module/cqrs/example/network/event',
 	'module/cqrs/example/builder/item/basic',
 ])
 .constant('Guard', {
@@ -43,7 +42,7 @@ angular.module('module/cqrs/example/domain/item', [
 	return new Rx.Subject.create(observer, observable);
 }])
 .constant('store/item/command', [])
-.factory('domain/item', ['Rx', '$log', 'store/item/event/current', 'builder/item/basic', 'domain/item/observer', 'UUID', function(Rx, $log, eventStore, builder, observer, UUID) {
+.factory('domain/item', ['Rx', '$log', 'store/item/event/current', 'builder/item/basic', function(Rx, $log, eventStore, builder) {
 	function load(itemId, expectNew) {
 		$log.log('domain {');
 		return Rx.Observable.fromArray(eventStore)
@@ -181,6 +180,8 @@ angular.module('module/cqrs/example/domain/item', [
 			.toArray()
 			.do(function(events) {
 				command.events = events.map(function(event) { return event.type }).join(', ');
+			})
+			.do(function(events) {
 				eventStore.onNext(events);
 			})
 			.subscribe(function(events) {

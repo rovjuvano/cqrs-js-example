@@ -86,8 +86,8 @@ html
 				section(ng-controller="itemStore")
 					.action
 						label
-							input(ng-model="app.ignoreEvents", type="checkbox")
-							| Ignore Events
+							input(ng-model="app.simulateLostEvents", type="checkbox")
+							| Simulate Lost Events
 					header Query Item List
 					.store-item-list
 						.item(ng-repeat="item in itemStore") {{item}}
@@ -95,8 +95,8 @@ html
 				section(ng-controller="itemStore")
 					.action
 						label
-							input(ng-model="app.ignoreEvents", type="checkbox")
-							| Ignore Events
+							input(ng-model="app.simulateLostEvents", type="checkbox")
+							| Simulate Lost Events
 					header Query Item Detail
 					.store-item-detail
 						.item(ng-repeat="(id, item) in itemStore") {{id}}: {{item}}
@@ -154,7 +154,7 @@ html
 		script(src="rx.aggregates.js")
 		script
 			|angular.module('Rx', []).constant('Rx', Rx);
-			|delete window.Rx;
+			//- |delete window.Rx;
 		script(src="index.js")
 		script(src="basic-builder.js")
 		script#network(src="network.js")
